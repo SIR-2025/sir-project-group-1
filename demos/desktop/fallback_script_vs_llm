@@ -1,0 +1,336 @@
+# nao_theater_performance.py
+from sic_framework.core.sic_application import SICApplication
+from sic_framework.core import sic_logging
+
+# Import the device(s) we will be using
+from sic_framework.devices import Nao
+from sic_framework.devices.nao import NaoqiTextToSpeechRequest
+from sic_framework.devices.common_naoqi.naoqi_motion import NaoqiAnimationRequest, NaoPostureRequest
+
+# Import the OpenAI GPT service, configuration, and message types
+from sic_framework.services.openai_gpt.gpt import (
+    GPT, 
+    GPTConf, 
+    GPTRequest, 
+    GPTResponse
+)
+
+# Import the speech recognition service (Dialogflow)
+from sic_framework.services.dialogflow_cx.dialogflow_cx import (
+    DialogflowCX,
+    DialogflowCXConf,
+    DetectIntentRequest,
+)
+
+# Import libraries necessary for the demo
+import json
+from os.path import abspath, join
+from dotenv import load_dotenv
+from os import environ
+import numpy as np
+import time
+
+class NaoTheaterPerformance(SICApplication):
+    """
+    NAO Theater Performance System - Combines scripted performance with LLM improvisation.
+    
+    Based on "I Don't Dance" script with differ states:
+    - Introduction, Denial, Doubt, Learning, Acceptance
+    
+    Architecture:
+    1. Dialogflow detects scripted intents from the performance
+    2. If scripted intent detected: use Dialogflow response + animation
+    3. If NO scripted intent detected: use LLM for improvisation
+    """
+    
+    def __init__(self):
+        # Call parent constructor (handles singleton initialization)
+        super(NaoTheaterPerformance, self).__init__()
+        
+        # Demo-specific initialization
+        self.nao_ip = "10.0.0.239"  # TODO: Replace with your NAO's IP address
+        self.env_path = ".env"  # Path to your .env file with OpenAI API key
+        self.dialogflow_keyfile_path = abspath(join("conf", "google", "google-key.json"))
+        
+        self.nao = None
+        self.gpt = None
+        self.dialogflow_cx = None
+        self.session_id = np.random.randint(10000)
+        self.conversation_context = []
+        self.current_state = "INTRODUCTION"  # Track performance state
+
+        # Define scripted intents from your Dialogflow setup
+        self.scripted_intents = {
+            # Introduction state intents with the gestures
+            "welcome_intent": "animations/Stand/Gestures/Hey_1",
+            "challenge_dance": "animations/Stand/Gestures/No_1",
+            "feel_question": "animations/Stand/Gestures/Explain_1",
+            "feel_game": "animations/Stand/Gestures/Explain_1",
+            "denial_intro": "animations/Stand/Gestures/No_1",
+            "start_last_word": "animations/Stand/Gestures/No_1",
+            
+            # Denial state intents
+            "confident_nao": "animations/Stand/Gestures/Enthusiastic_4",
+            "denial_response": "animations/Stand/Gestures/No_1",
+            "denial_statement": "animations/Stand/Gestures/No_1",
+            "denial_count_beats": "animations/Stand/Gestures/Explain_1",
+            "lacks_structure": "animations/Stand/Gestures/No_1",
+            
+            # Doubt state intents
+            "doubt_baseball_choice": "animations/Stand/Gestures/Explain_1",
+            "doubt_watch_this": "animations/Stand/Gestures/Explain_1",
+            "doubt_that's_dancing": "animations/Stand/Gestures/Enthusiastic_4",
+            "doubt_told_you_dance": "animations/Stand/Gestures/Enthusiastic_4",
+            "doubt_which_means_dancing": "animations/Stand/Gestures/Enthusiastic_4",
+            
+            # Learning state intents
+            "learn_dont_dance": "animations/Stand/Gestures/Enthusiastic_4",
+            "learn_try": "animations/Stand/Gestures/Enthusiastic_4",
+            "learn_got_style": "animations/Stand/Gestures/Enthusiastic_4",
+            "learn_grooving_is_dancing": "animations/Stand/Gestures/Enthusiastic_4",
+            
+            # Acceptance state intents
+            "accept_can_dance": "animations/Stand/Gestures/Hey_1",
+            "dance_algorithm": "animations/Stand/Gestures/Explain_1",
+            "accept_exactly": "animations/Stand/Gestures/Enthusiastic_4"
+        }
+
+        # State transitions based on your script
+        self.state_transitions = {
+            "welcome_intent": "INTRODUCTION",
+            "start_last_word": "DENIAL",
+            "doubt_baseball_choice": "DOUBT", 
+            "learn_dont_dance": "LEARNING",
+            "accept_can_dance": "ACCEPTANCE"
+        }
+
+        self.set_log_level(sic_logging.INFO)
+        
+        self.setup()
+    
+    def setup(self):
+        """Initialize and configure NAO robot, OpenAI GPT, and Dialogflow."""
+        self.logger.info("Initializing NAO robot for theater performance...")
+        
+        # Initialize NAO
+        self.nao = Nao(ip=self.nao_ip)
+        
+        self.logger.info("Setting up OpenAI GPT for improvisation...")
+        
+        # Load environment variables for OpenAI API key
+        if self.env_path:
+            load_dotenv(self.env_path)
+        
+        # Get API key from environment variable with error handling
+        api_key = environ.get("OPENAI_API_KEY")
+        if not api_key:
+            self.logger.error("OPENAI_API_KEY environment variable not found!")
+            self.logger.info("Please create a .env file with: OPENAI_API_KEY=your_actual_key_here")
+            raise ValueError("OPENAI_API_KEY environment variable not set.")
+        
+        self.logger.info("OpenAI API key loaded successfully")
+        
+        # Setup GPT for improvisation (theater context)
+        conf = GPTConf(
+            openai_key=api_key,
+            system_message="You are an actor on theater. Your answers are dry humor robot funny. ",
+            model="gpt-4o-mini",
+            temp=0.8,  # Higher temperature for creative improvisation
+            max_tokens=80
+        )
+        
+        self.gpt = GPT(conf=conf)
+        
+        self.logger.info("Setting up Dialogflow for scripted performance...")
+        
+        # Load the key json file for Dialogflow
+        try:
+            with open(self.dialogflow_keyfile_path) as f:
+                keyfile_json = json.load(f)
+        except FileNotFoundError:
+            self.logger.error(f"Dialogflow key file not found at: {self.dialogflow_keyfile_path}")
+            self.logger.info("Please ensure your Google Cloud key file exists in conf/google/")
+            raise
+        
+        # Agent configuration (your theater performance agent)
+        agent_id = "3e375e92-66e0-42f9-8882-0f3f97988c0e"  # Your theater agent
+        location = "europe-west4"
+
+        # Create configuration for Dialogflow CX
+        dialogflow_conf = DialogflowCXConf(
+            keyfile_json=keyfile_json,
+            agent_id=agent_id,
+            location=location,
+            sample_rate_hertz=16000,  # NAO's microphone sample rate
+            language="en"
+        )
+        
+        # Initialize Dialogflow CX with NAO's microphone as input
+        self.dialogflow_cx = DialogflowCX(conf=dialogflow_conf, input_source=self.nao.mic)
+        
+        self.logger.info("Dialogflow theater intents initialized successfully")
+        self.logger.info("OpenAI GPT improvisation initialized successfully")
+        self.logger.info(f"Scripted intents loaded: {len(self.scripted_intents)} intents")
+    
+    def is_scripted_intent(self, intent_name):
+        """Check if the detected intent is part of our script."""
+        return intent_name in self.scripted_intents
+    
+    def update_performance_state(self, intent_name):
+        """Update the current performance state based on intent transitions."""
+        if intent_name in self.state_transitions:
+            new_state = self.state_transitions[intent_name]
+            if new_state != self.current_state:
+                self.logger.info(f"🎭 Performance state transition: {self.current_state} → {new_state}")
+                self.current_state = new_state
+                
+                # Update GPT system message with new state
+                self.update_gpt_context()
+    
+    def update_gpt_context(self):
+        """Update the GPT system message with current performance state."""
+        # This would require recreating the GPT service with new config
+        # For now, we'll handle this in the prompt
+        self.logger.info(f"Updated GPT context to state: {self.current_state}")
+    
+    def trigger_scripted_response(self, intent_name, fulfillment_message):
+        """
+        Handle scripted intent response - Dialogflow response + animation.
+        NO LLM USED for scripted lines.
+        """
+        self.logger.info(f"🎭 Scripted intent detected: {intent_name}")
+        
+        # Update performance state
+        self.update_performance_state(intent_name)
+        
+        # Get the corresponding animation
+        animation = self.scripted_intents.get(intent_name)
+        
+        # Trigger animation (non-blocking so TTS can speak simultaneously)
+        if animation:
+            self.logger.info(f"💃 Triggering animation: {animation}")
+            try:
+                self.nao.motion.request(NaoqiAnimationRequest(animation), block=False)
+            except Exception as e:
+                self.logger.warning(f"Could not trigger animation {animation}: {e}")
+        
+        # Speak the scripted Dialogflow response
+        if fulfillment_message:
+            self.logger.info(f"🗣️ NAO (scripted): {fulfillment_message}")
+            self.nao.tts.request(NaoqiTextToSpeechRequest(fulfillment_message))
+        else:
+            self.logger.warning("No fulfillment message for scripted intent")
+    
+    def handle_improvisation(self, user_input):
+        """
+        Handle improvisation case using LLM when no scripted intent is detected.
+        """
+        self.logger.info("🎨 No scripted intent detected - using LLM improvisation")
+        
+        try:
+            # Create context-aware prompt for improvisation
+            context_prompt = f"""Current performance state: {self.current_state}
+Previous context: {self.conversation_context[-2:] if self.conversation_context else 'Start of performance'}
+Human said: "{user_input}"
+
+Respond in character as NAO the robot:"""
+            
+            # Get reply from OpenAI GPT
+            gpt_reply = self.gpt.request(GPTRequest(input=context_prompt, context_messages=[]))
+            
+            # Extract just the response text
+            response_text = gpt_reply.response.strip()
+            
+            # Print and speak the LLM response
+            self.logger.info(f"🧠 LLM Improvisation: {response_text}")
+            self.logger.info(f"🗣️ NAO (improvised): {response_text}")
+            self.nao.tts.request(NaoqiTextToSpeechRequest(response_text))
+            
+            # Add to conversation context for continuity
+            self.conversation_context.append(f"Human: {user_input}")
+            self.conversation_context.append(f"NAO: {response_text}")
+            
+            # Keep context manageable (last 4 messages)
+            if len(self.conversation_context) > 4:
+                self.conversation_context = self.conversation_context[-4:]
+                
+        except Exception as e:
+            self.logger.error(f"LLM improvisation failed: {e}")
+            fallback_response = "I am processing that. Please continue with our performance."
+            self.nao.tts.request(NaoqiTextToSpeechRequest(fallback_response))
+    
+    def start_performance(self):
+        """Start the theater performance with initial setup."""
+        self.logger.info("🎬 Starting theater performance...")
+        
+        # Initial setup - ensure NAO is in standing position
+        try:
+            self.nao.motion.request(NaoPostureRequest("Stand", 0.5))
+            time.sleep(1)
+        except:
+            self.logger.warning("Could not set standing posture")
+        
+        # Welcome message
+        welcome_message = (
+            "Hi, I am ready for the show!"
+        )
+        self.nao.tts.request(NaoqiTextToSpeechRequest(welcome_message))
+        self.logger.info("🎭 Theater performance initialized")
+    
+    def run(self):
+        """Main theater performance loop."""
+        try:
+            # Start the performance
+            self.start_performance()
+            self.logger.info("🎤 Performance active - NAO is listening for cues...")
+            
+            while not self.shutdown_event.is_set():
+                self.logger.info(f"🎭 Current state: {self.current_state} - Waiting for line...")
+                
+                # Use Dialogflow for intent detection (waits for speech through NAO mic)
+                dialogflow_reply = self.dialogflow_cx.request(DetectIntentRequest(self.session_id))
+                
+                # Check if we have a valid reply with transcript
+                if dialogflow_reply and dialogflow_reply.transcript:
+                    user_input = dialogflow_reply.transcript
+                    self.logger.info(f"🎤 Heard: '{user_input}'")
+                    
+                    # DECISION POINT: Check if this is a scripted intent
+                    if dialogflow_reply.intent and self.is_scripted_intent(dialogflow_reply.intent):
+                        # 🎭 SCRIPTED INTENT DETECTED: Use scripted response + animation
+                        self.trigger_scripted_response(
+                            dialogflow_reply.intent, 
+                            dialogflow_reply.fulfillment_message
+                        )
+                    else:
+                        # 🎨 NO SCRIPTED INTENT DETECTED: Use LLM improvisation
+                        self.handle_improvisation(user_input)
+                    
+                else:
+                    self.logger.info("❌ No speech detected or recognition failed")
+                    # Don't speak to avoid breaking performance flow
+                    
+        except KeyboardInterrupt:
+            self.logger.info("🛑 Performance interrupted")
+            self.nao.tts.request(NaoqiTextToSpeechRequest("Performance concluded. Thank you."))
+        except Exception as e:
+            self.logger.error(f"💥 Performance error: {e}")
+            self.nao.tts.request(NaoqiTextToSpeechRequest("Technical difficulty. Please stand by."))
+            import traceback
+            traceback.print_exc()
+        finally:
+            self.logger.info("🔚 Performance ended")
+            self.shutdown()
+
+
+if __name__ == "__main__":
+    print("=" * 70)
+    print("NAO Theater Performance System - 'I Don't Dance'")
+    print("Scripted performance + LLM Improvisation")
+    print("=" * 70)
+    
+    try:
+        performance = NaoTheaterPerformance()
+        performance.run()
+    except Exception as e:
+        print(f"Failed to start performance: {e}")
