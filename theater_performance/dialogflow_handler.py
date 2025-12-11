@@ -29,9 +29,7 @@ class DialogflowHandler:
                 "animations/Stand/Gestures/Hey_1",
                 "animations/Stand/Gestures/Enthusiastic_4"
             ],
-            "challenge_dance_2": [
-                "animations/Stand/Gestures/No_3"
-            ],
+            
             "feel_question": [
                 "animations/Stand/Gestures/Explain_3"
             ],
@@ -46,8 +44,17 @@ class DialogflowHandler:
             ],
 
             # DENIAL
+            "confident_nao": [
+                "almost_swingbat_motion"
+            ],
+            
+            "practice_show": [
+                "almost_swingbat_motion"
+            ],
+            
             "denial_response": [
-                "animations/Stand/Gestures/No_8"
+                "animations/Stand/Gestures/No_8",
+                "animations/Stand/Gestures/Explain_1",
             ],
             "denial_statement": [
                 "animations/Stand/Gestures/No_3"
@@ -68,7 +75,13 @@ class DialogflowHandler:
             ],
             "doubt_watch_this": [
                 "animations/Stand/Gestures/YouKnowWhat_1"
+            
             ],
+            
+            "your_turn": [
+                "good_swingbat_motion"
+            ],
+            
             "doubt_thats_dancing": [
                 "animations/Stand/Gestures/Enthusiastic_4"
             ],
@@ -76,7 +89,8 @@ class DialogflowHandler:
                 "animations/Stand/Gestures/Enthusiastic_5"
             ],
             "doubt_which_means_dancing": [
-                "animations/Stand/Gestures/Yes_1"
+                "animations/Stand/Gestures/Yes_1",
+                
             ],
 
             # LEARNING
@@ -85,7 +99,12 @@ class DialogflowHandler:
             ],
             "learn_try": [
                 "animations/Stand/Gestures/Enthusiastic_5"
+                # PRE LAST DANCE 
             ],
+            
+            "what_you_got": [
+                "v1_pre_last_dance_motion"],
+            
             "learn_got_style": [
                 "animations/Stand/Gestures/Enthusiastic_5"
             ],
@@ -96,15 +115,14 @@ class DialogflowHandler:
 
             # ACCEPTANCE
             "accept_can_dance": [
-                "animations/Stand/Gestures/Hey_1",
-                "animations/Stand/Gestures/Enthusiastic_5"
+                "final_acceptance_dance_motion"
             ],
+            
             "dance_algorithm": [
                 "animations/Stand/Gestures/Explain_1"
             ],
             "accept_exactly": [
-                "animations/Stand/Gestures/Yes_2",
-                "animations/Stand/Gestures/Hey_1"
+                "high_five_motion"
             ],
         }
 
