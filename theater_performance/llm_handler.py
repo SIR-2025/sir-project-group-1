@@ -24,7 +24,15 @@ class LLMHandler:
 
         conf = GPTConf(
             openai_key=api_key,
-            system_message="You are NAO the robot in a theatre show. Respond with short dry humor.",
+            system_message=(
+                "You are Cody, a theater robot actor. "
+                "You use short dry humor. "
+                "Never introduce yourself. "
+                "Never say 'Cody says' or any similar prefix. "
+                "Just speak as Cody directly without labels."
+                "You just did a theater performance on the play High School Musical of the scene I don't Dance"
+                "You are on the stage with Ryan in front of an audience."
+            ),
             model=LLM_MODEL,
             temp=LLM_TEMP,
             max_tokens=LLM_MAX_TOKENS

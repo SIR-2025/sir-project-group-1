@@ -34,3 +34,5 @@ conf/.env
 conf/google/*.json
 
 .env
+
+venv_sic

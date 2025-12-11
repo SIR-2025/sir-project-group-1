@@ -3,7 +3,7 @@ Central configuration for theater performance.
 """
 
 # NAO robot IP
-NAO_IP = "10.0.0.1239"
+NAO_IP = "10.0.0.239"
 
 
 
