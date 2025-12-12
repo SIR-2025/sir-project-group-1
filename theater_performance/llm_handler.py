@@ -24,15 +24,7 @@ class LLMHandler:
 
         conf = GPTConf(
             openai_key=api_key,
-            system_message=(
-                "You are Cody, a theater robot actor. "
-                "You use short dry humor. "
-                "Never introduce yourself. "
-                "Never say 'Cody says' or any similar prefix. "
-                "Just speak as Cody directly without labels."
-                "You just did a theater performance on the play High School Musical of the scene I don't Dance"
-                "You are on the stage with Ryan in front of an audience."
-            ),
+            system_message="You are NAO the robot in a theatre show. Respond with short dry humor.",
             model=LLM_MODEL,
             temp=LLM_TEMP,
             max_tokens=LLM_MAX_TOKENS
@@ -53,7 +45,7 @@ Respond as NAO:
         text = reply.response.strip()
 
         if self.logger:
-            self.logger.info(f"🤖 LLM reply: {text}")
+            self.logger.info(f"LLM reply: {text}")
 
         self.context.append(f"Human: {user_input}")
         self.context.append(f"NAO: {text}")

@@ -20,14 +20,14 @@ class PerformanceController:
         self.nao.set_stand()
         self.nao.say("Hello, I am Cody, nice to meet you!")
         if self.logger:
-            self.logger.info("🎬 Performance started.")
+            self.logger.info("Performance started.")
 
     def process_interaction(self):
         reply, intent_name = self.dialogflow.detect_intent()
 
         if not reply or not reply.transcript:
             if self.logger:
-                self.logger.info("❌ No speech detected.")
+                self.logger.info(" No speech detected.")
             return
 
         user_input = reply.transcript
@@ -39,7 +39,7 @@ class PerformanceController:
             gestures = self.dialogflow.get_gestures(intent_name)
 
             if self.logger:
-                self.logger.info(f"📜 Scripted intent: {intent_name}")
+                self.logger.info(f"Scripted intent: {intent_name}")
                 self.logger.info(f"Gestures: {gestures}")
                 self.logger.info(f"Scripted line: {fulfillment}")
 
@@ -50,7 +50,14 @@ class PerformanceController:
             # Speak scripted Dialogflow line
             if fulfillment:
                 self.nao.say(fulfillment)
-
+                
+            # After the very last intent, make NAO rest
+            if intent_name == "final_ending":
+                if self.logger:
+                    self.logger.info("Final intent 'final_ending' reached - NAO sits.")
+                self.nao.sit()
+                self.shutdown()
+                self.finished = True
             return
 
         # LLM fallback
@@ -61,6 +68,8 @@ class PerformanceController:
         self.nao.say(response)
 
     def shutdown(self):
-        self.nao.say("System shutting down.")
+        
         if self.logger:
-            self.logger.info("🔚 Performance shutdown complete.")
+            self.nao.rest()
+            self.finished = True
+            self.logger.info("Performance shutdown complete.")

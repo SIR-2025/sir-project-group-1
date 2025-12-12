@@ -1,0 +1,15 @@
+numpy
+python-dotenv
+redis
+
+# OpenAI GPT fallback
+openai
+
+# Dialogflow CX + Google Cloud stack
+google-cloud-dialogflow-cx
+google-api-core
+google-auth
+google-auth-oauthlib
+grpcio
+grpcio-status
+protobuf
