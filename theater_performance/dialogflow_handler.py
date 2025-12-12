@@ -132,10 +132,13 @@ class DialogflowHandler:
             sample_rate_hertz=16000,
             language="en"
         )
+        from sic_framework.devices.desktop import Desktop 
+
+        self.desktop = Desktop(mic_conf=MicrophoneConf(device_index=2))
 
         from sic_framework.devices import Nao
         self.nao = Nao(ip=NAO_IP)
-        self.cx = DialogflowCX(conf=conf, input_source=self.nao.mic)
+        self.cx = DialogflowCX(conf=conf, input_source=self.desktop.mic)
 
         if self.logger:
             self.logger.info("Dialogflow initialized.")
