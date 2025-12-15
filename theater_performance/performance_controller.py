@@ -10,7 +10,7 @@ class PerformanceController:
         self.logger = logger
 
         self.nao = NaoActions(logger=logger)
-        self.dialogflow = DialogflowHandler(logger=logger)
+        self.dialogflow = DialogflowHandler()
         self.llm = LLMHandler(logger=logger)
 
         self.current_state = "INTRODUCTION"

@@ -16,8 +16,6 @@ from theater_performance.config import (
 
 
 class DialogflowHandler:
-    """Handles Dialogflow intent detection + gesture mapping."""
-
     def __init__(self, logger=None):
         self.logger = logger
         self.session_id = np.random.randint(10000)
@@ -29,6 +27,7 @@ class DialogflowHandler:
                 "animations/Stand/Gestures/Hey_1",
                 "animations/Stand/Gestures/Enthusiastic_4"
             ],
+            
             "feel_question": [
                 "animations/Stand/Gestures/Explain_3"
             ],
@@ -46,9 +45,11 @@ class DialogflowHandler:
             "confident_nao": [
                 "almost_swingbat_motion"
             ],
+            
             "practice_show": [
                 "almost_swingbat_motion"
             ],
+            
             "denial_response": [
                 "animations/Stand/Gestures/No_8",
                 "animations/Stand/Gestures/Explain_1",
@@ -73,9 +74,11 @@ class DialogflowHandler:
             "doubt_watch_this": [
                 "animations/Stand/Gestures/YouKnowWhat_1"
             ],
+            
             "your_turn": [
                 "good_swingbat_motion"
             ],
+            
             "doubt_thats_dancing": [
                 "animations/Stand/Gestures/Enthusiastic_4"
             ],
@@ -83,7 +86,8 @@ class DialogflowHandler:
                 "animations/Stand/Gestures/Explain_1"
             ],
             "doubt_which_means_dancing": [
-                "animations/Stand/Gestures/Yes_1",  
+                "animations/Stand/Gestures/Yes_1",
+                
             ],
 
             # LEARNING
@@ -93,9 +97,10 @@ class DialogflowHandler:
             "learn_try": [
                 "animations/Stand/Gestures/Explain_1"
             ],
+            
             "what_you_got": [
-                "v1_pre_last_dance_motion"
-            ],
+                "v1_pre_last_dance_motion"],
+            
             "learn_got_style": [
                 "animations/Stand/Gestures/Enthusiastic_4"
             ],
@@ -107,17 +112,13 @@ class DialogflowHandler:
             "accept_can_dance": [
                 "final_acceptance_dance_motion"
             ],
+            
             "dance_algorithm": [
                 "animations/Stand/Gestures/Explain_1"
             ],
             "accept_exactly": [
                 "high_five_motion"
             ],
-            "final_ending": [
-                "animations/Stand/Gestures/Explain_1",
-                "animations/Stand/Gestures/Yes_1",
-                "animations/Stand/Gestures/No_3"                
-            ]
         }
 
         # Load Dialogflow key
@@ -132,13 +133,10 @@ class DialogflowHandler:
             sample_rate_hertz=16000,
             language="en"
         )
-        from sic_framework.devices.desktop import Desktop 
-
-        self.desktop = Desktop(mic_conf=MicrophoneConf(device_index=2))
 
         from sic_framework.devices import Nao
         self.nao = Nao(ip=NAO_IP)
-        self.cx = DialogflowCX(conf=conf, input_source=self.desktop.mic)
+        self.cx = DialogflowCX(conf=conf, input_source=self.nao.mic)
 
         if self.logger:
             self.logger.info("Dialogflow initialized.")
